@@ -1,0 +1,12 @@
+all: pile_file.o graph.o
+	gcc pile_file.o graph.o -o graph
+
+pile_file.o: pile_file.c pile_file.h
+	gcc -c pile_file.c
+
+graph.o : graph.c pile_file.h
+	gcc -c graph.c
+
+clean:
+	rm -f *.o
+	rm -f graph

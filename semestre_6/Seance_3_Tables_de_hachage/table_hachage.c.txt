@@ -1,0 +1,171 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h> /* Pour utiliser les fonctions agissants sur les strings */
+#include <time.h> /* Pour mesurer le temps d'exécution */
+
+#define TAILLE_TABLE 34061
+/* Nombre premier le plus proche de 22740 * 3/2
+   car il est dit sur Wikipedia que les meilleurs
+   résultats sont obtenus avec une table de hachage
+   remplie aux 2/3. */
+
+void initialiser_table(char* table[], int taille, char* caractere_intitialisation);
+int remplir_table(char* table[], int taille, FILE* fichier);
+void afficher_table(char* table[], int taille);
+unsigned int hachage(char *chaine);
+int inserer(char* table[], char* nouveau_mot);
+int present(char* table[], char* mot);
+int chercher(char* table[], char* mot);
+
+unsigned int hachage(char *chaine)
+{
+    unsigned int i = 0, hash = 0;
+    while(chaine[i] != '\0')
+    {
+        hash += i*i*i*57*chaine[i];
+	/* Fonction de hachage trouvée par chance
+	   et qui marche très bien : 57*i³*ASCII */
+	i++;
+    }
+    hash %= TAILLE_TABLE; /* Modulo la taille de la table */
+    return hash;
+}
+
+void initialiser_table(char* table[], int taille, char* caractere_intitialisation)
+{
+    for (int index = 0; index < taille; index++)
+    {
+	/* On fait pointer tous les élements du tableau */
+	/* vers le caractère d'initialisation */
+	table[index] = caractere_intitialisation;
+    }
+}
+
+int inserer(char* table[], char* nouveau_mot)
+{
+    int index = hachage(nouveau_mot);
+    int miss = 0;
+    while(strcmp(table[index], "") != 0)
+    {
+	miss++;
+    	index++;
+	if (index == TAILLE_TABLE)
+	{
+	    index = 0;
+	}
+    }
+    table[index] = nouveau_mot;
+    return miss;
+}
+
+int remplir_table(char* table[], int taille, FILE* fichier)
+{
+    int miss_count = 0;
+    for (int i = 0; i < taille; i++)
+    {
+	char* mot;
+	mot = malloc(30*sizeof(char));
+	if (fscanf(fichier, "%s\n", mot) != 0)
+	{
+	    miss_count+=inserer(table, mot);
+	}
+    }
+    return miss_count;
+}
+
+void afficher_table(char* table[], int taille)
+{
+    for (int index = 0; index < taille; index++)
+    {
+	printf("Index %d : %s\n", index, table[index]);
+    }
+}
+
+int present(char* table[], char* mot)
+{
+    int index_courant = hachage(mot);
+    int tour_fait = 0;
+    while (strcmp(table[index_courant], mot) != 0)
+    {
+	if (strcmp(table[index_courant], "") == 0)
+	{
+	    return 0;
+	}
+	index_courant++;
+	if (index_courant == TAILLE_TABLE)
+	{
+	    index_courant = 0;
+	    if (tour_fait == 1)
+	    {
+		return 0;
+	    }
+	    tour_fait = 1;
+	}
+    }
+    return 1;
+}
+
+int chercher(char* table[], char* mot)
+{
+    int index_courant = 0;
+    while (strcmp(table[index_courant], mot) != 0)
+    {
+	index_courant++;
+	if (index_courant == TAILLE_TABLE)
+	{
+	    return 0;
+	}
+    }
+    return 1;
+}
+
+int main(void)
+{
+    clock_t t;
+
+    char* tableau_dictionnaire[TAILLE_TABLE];
+    printf("Initialisation\n");
+    initialiser_table(tableau_dictionnaire, TAILLE_TABLE, "");
+    FILE* fichier;
+    fichier = fopen("dictionnaire.txt", "r");
+    if ( fichier != NULL ){
+	printf("Lecture du fichier\n");
+	int miss_count;
+	miss_count = remplir_table(tableau_dictionnaire, TAILLE_TABLE, fichier);
+	/* afficher_table(tableau_dictionnaire, TAILLE_TABLE); */
+	printf("%d misses par mot en moyenne\n", miss_count/TAILLE_TABLE);
+	printf("Recherche\n");
+	char mot_a_chercher[30];
+	printf("Entrez le mot à chercher : ");
+	scanf("%s", mot_a_chercher);
+	t = clock();
+	if (present(tableau_dictionnaire, mot_a_chercher))
+	{
+	    printf("Présent !\n");
+	}
+	else
+	{
+	    printf("Non-présent !\n");
+	};
+	t = clock() - t;
+	double duree_recherche_hachage = 1000*((float)t)/CLOCKS_PER_SEC;
+	printf("Recherche faite en %.2fms en utilisant le hachage\n", duree_recherche_hachage);
+	t = clock();
+	if (chercher(tableau_dictionnaire, mot_a_chercher))
+	{
+	    printf("Présent !\n");
+	}
+	else
+	{
+	    printf("Non-présent !\n");
+	}
+	t = clock() - t;
+	double duree_recherche_directe = 1000*((float)t)/CLOCKS_PER_SEC;
+	printf("Recherche faite en %.2fms en parcourant la liste\n", duree_recherche_directe);
+	fclose(fichier);
+    }
+    else
+    {
+	printf("Erreur d'ouverture du fichier !\n");
+    }
+}
